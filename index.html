@@ -60,8 +60,10 @@
     </style>
 </head>
 <body>
+<div>Convert SVG image to a orthographic projection (<a href="https://github.com/samirbr/svg2topo" target="_blank">https://github.com/samirbr/svg2topo</a></div>
 <input type="file" id="file">
 <button id="export" disabled>Export</button>
+<button id="download" disabled>Download</button>
 <br>
 <div id="content" class="pull-left"></div>
 <div id="map" class="pull-left"></div>
@@ -225,7 +227,7 @@
       return (x + 180) % 360 - 180;
     }
         
-    function exports() {
+    function getContent() {        
         var data = {
             type: "FeatureCollection",
             features: Array.prototype.map.call(document.querySelectorAll('svg path'), function (path) { 
@@ -257,20 +259,31 @@
             properties[key] = value;
             return true;
         }}));
+    }
+        
+    function exports() {        
+        var content = getContent();
         
         generate(JSON.parse(content));
+    }
+    
+    function download() {
+        var content = getContent();
         
-        /*
         saveAs(new Blob([content], {
             type: 'text/plain;charset=utf-8'
         }), 'map.topojson');
-        */
     }
 
     $(function () {
         $('#export').on('click', function (event) {
             exports();
         });
+        
+        $('#download').on('click', function (event) {
+            download();
+        });
+        
         $('#file').on('change', function (event) {
             $('#export').attr('disabled', true);
             var reader = new FileReader();
