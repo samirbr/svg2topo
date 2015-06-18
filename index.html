@@ -78,18 +78,23 @@
     }
     </style>
 </head>
-<body>
+<body>    
     <div id="main">
-        <p>Convert SVG image to a orthographic projection or Topojson data.</p>
-        <p><a href="https://github.com/samirbr/svg2topo" target="_blank">https://github.com/samirbr/svg2topo</a></p>
+        <h1>3D Map Generator</h1>
         
+        <p>Converts a SVG file into TopoJSON data to render an Orthographic projection that can be used by D3.JS to create geospatial map projections. 
         
-        <input type="file" id="file">
-        <br>
-        <button class="btn btn-primary" id="export" disabled>Export</button>
-        <button class="btn btn-primary" id="download" disabled>Download</button>
+        <p><i>Source:</i> <a href="https://github.com/samirbr/svg2topo" target="_blank">https://github.com/samirbr/svg2topo</a></p>
         
-        <br>
+        <p>
+            <label for="file">SVG File</svg>
+            <input type="file" id="file" name="file">
+        </p>
+        <p>
+            <button class="btn btn-primary" id="export" disabled>Generate</button>
+            <button class="btn btn-primary" id="download" disabled>Download TopoJSON</button>
+        </p>
+        
         <div id="content" class="pull-left"></div>
         <div id="map" class="pull-left"></div>
     </div>
