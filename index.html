@@ -1,7 +1,22 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+    <link href='http://fonts.googleapis.com/css?family=Roboto' rel='stylesheet' type='text/css'>
+    
     <style>
+    @import url(http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/css/bootstrap.min.css);
+    @import url(http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/css/bootstrap-theme.min.css);
+    @import url(http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.1.0/css/font-awesome.min.css);
+    
+    body { 
+        margin: 0; 
+        font-family: 'Roboto', sans-serif;
+    }
+    
+    #main {
+        padding: 24px;
+    }
+    
     #map svg {
       cursor: move;
     }
@@ -57,244 +72,256 @@
     .pull-left {
         float: left;
     }
+    
+    .clearfix {
+        clear: both;
+    }
     </style>
 </head>
 <body>
-<div>Convert SVG image to a orthographic projection (<a href="https://github.com/samirbr/svg2topo" target="_blank">https://github.com/samirbr/svg2topo</a></div>
-<input type="file" id="file">
-<button id="export" disabled>Export</button>
-<button id="download" disabled>Download</button>
-<br>
-<div id="content" class="pull-left"></div>
-<div id="map" class="pull-left"></div>
-<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
-<script src="https://rawgithub.com/eligrey/FileSaver.js/master/FileSaver.js"></script>
-<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-<script src="http://d3js.org/topojson.v1.min.js"></script>
-<script src="topojson.full.js"></script>
-<script>
-    function generate(world) {
-        var width = 600,
-            height = width;
-
-        var projection = d3.geo.orthographic()
-            .translate([width / 2, height / 2])
-            .scale(295)
-            .clipAngle(90)
-            .precision(.1)
-            .rotate([0, -30]);
-            // There is a clipping bug, fixed in branch geo-clip-good
-            //.rotate([-103.5, -20, 0]);
-
-        var path = d3.geo.path()
-            .projection(projection);
-
-        var graticule = d3.geo.graticule()();
-
-        var svg = d3.select("#map").append("svg")
-            .attr("width", width)
-            .attr("height", height)
-            .call(d3.behavior.drag()
-              .origin(function() { var rotate = projection.rotate(); return {x: 2 * rotate[0], y: -2 * rotate[1]}; })
-              .on("drag", function() {
-                projection.rotate([d3.event.x / 2, -d3.event.y / 2, projection.rotate()[2]]);
-                svg.selectAll("path").attr("d", path);
-              }));
-
-        var hatch = svg.append("defs").append("pattern")
-            .attr("id", "hatch")
-            .attr("patternUnits", "userSpaceOnUse")
-            .attr("width", 8)
-            .attr("height", 8)
-          .append("g");
-        hatch.append("path").attr("d", "M0,0L8,8");
-        hatch.append("path").attr("d", "M8,0L0,8");
-
-        svg.append("path")
-            .datum({type: "Sphere"})
-            .attr("class", "background")
-            .attr("d", path);
-
-        svg.append("path")
-            .datum(graticule)
-            .attr("class", "graticule")
-            .attr("d", path);
-
-        svg.append("path")
-            .datum({type: "LineString", coordinates: [[180, -90], [180, 0], [180, 90]]})
-            .attr("class", "antimeridian")
-            .attr("d", path);
-
-        svg.append("path")
-            .datum({type: "Sphere"})
-            .attr("class", "graticule")
-            .attr("d", path);
+    <div id="main">
+        <p>Convert SVG image to a orthographic projection or Topojson data.</p>
+        <p><a href="https://github.com/samirbr/svg2topo" target="_blank">https://github.com/samirbr/svg2topo</a></p>
         
-          
-        var country = svg.selectAll(".country")
-            .data(topojson.feature(world, world.objects.collection).features)
-            .enter().append("g")
-            .attr("class", "country");
-          
-            country.append("path")
-              .attr("class", "land")
-              .attr("d", path);
-          /*
-          country.append("path")
-              .datum(boundsPolygon(d3.geo.bounds))
-              .attr("class", "bounds")
-              .attr("d", path);  
-          */
-    }
-
-    function boundsPolygon(b) {
-      return function(geometry) {
-        var bounds = b(geometry);
-        if (bounds[0][0] === -180 && bounds[0][1] === -90 && bounds[1][0] === 180 && bounds[1][1] === 90) {
-          return {type: "Sphere"};
-        }
-        if (bounds[0][1] === -90) bounds[0][1] += 1e-6;
-        if (bounds[1][1] === 90) bounds[0][1] -= 1e-6;
-        if (bounds[0][1] === bounds[1][1]) bounds[1][1] += 1e-6;
-
-        return {
-          type: "Polygon",
-          coordinates: [
-            [bounds[0]]
-              .concat(parallel(bounds[1][1], bounds[0][0], bounds[1][0]))
-              .concat(parallel(bounds[0][1], bounds[0][0], bounds[1][0]).reverse())
-          ]
-        };
-      };
-    }
-
-    function parallel(φ, λ0, λ1) {
-      if (λ0 > λ1) λ1 += 360;
-      var dλ = λ1 - λ0,
-          step = dλ / Math.ceil(dλ);
-      return d3.range(λ0, λ1 + .5 * step, step).map(function(λ) { return [normalise(λ), φ]; });
-    }
-
-    function bounds2d(d) {
-      var x0, y0, x1, y1;
-      x1 = y1 = -(x0 = y0 = Infinity);
-      d3.geo.stream(d, {
-        point: function(x, y) {
-          if (x < x0) x0 = x;
-          if (x > x1) x1 = x;
-          if (y < y0) y0 = y;
-          if (y > y1) y1 = y;
-        },
-        lineStart: noop,
-        lineEnd: noop,
-        polygonStart: noop,
-        polygonEnd: noop
-      });
-      return [[x0, y0], [x1, y1]];
-    }
-
-    function noop() {}
-    /*
-    (function() {
-
-        var width = 300,
-            height = width / 2;
-
-        var circle = d3.geo.circle();
-
-        var projection = d3.geo.equirectangular()
-            .translate([width / 2, height / 2])
-            .scale(width / (2 * Math.PI) - 2)
-            .precision(.1);
-
-        var path = d3.geo.path()
-            .pointRadius(1)
-            .projection(projection);
-          
-        d3.select("#inside").append("svg")
-          .attr("width", 16)
-          .attr("height", 16)
-          .append("rect")
-          .style("fill", "url(#hatch)")
-          .style("stroke", "#000")
-          .style("stroke-width", "2px")
-          .attr("width", 16)
-          .attr("height", 16);
-    })();
-    */
-
-    function normalise(x) {
-      return (x + 180) % 360 - 180;
-    }
         
-    function getContent() {        
-        var data = {
-            type: "FeatureCollection",
-            features: Array.prototype.map.call(document.querySelectorAll('svg path'), function (path) { 
-                return {
-                  "type": "Feature",
-                  "properties": {},
-                  "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [
-                        path.attributes.d.value.match(/M (.*) Z/).pop().split(' ').map(function (p) { 
-                            var point = JSON.parse('[' + p + ']'),
-                                x = point[0] / document.querySelector('svg').width.baseVal.value, 
-                                y = point[1] / document.querySelector('svg').height.baseVal.value;
-                                
-                            return [
-                                (x * 180) - 180,
-                                90 - (y * 90)
-                            ];
-                        })
-                    ]
-                  }
-                }; 
-            })
-        }
-
-        var content = JSON.stringify(topojson.topology({
-            collection: data
-        }, {'property-transform': function allProperties(properties, key, value) {
-            properties[key] = value;
-            return true;
-        }}));
-    }
+        <input type="file" id="file">
+        <br>
+        <button class="btn btn-primary" id="export" disabled>Export</button>
+        <button class="btn btn-primary" id="download" disabled>Download</button>
         
-    function exports() {        
-        var content = getContent();
-        
-        generate(JSON.parse(content));
-    }
+        <br>
+        <div id="content" class="pull-left"></div>
+        <div id="map" class="pull-left"></div>
+    </div>
     
-    function download() {
-        var content = getContent();
-        
-        saveAs(new Blob([content], {
-            type: 'text/plain;charset=utf-8'
-        }), 'map.topojson');
-    }
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="https://rawgithub.com/eligrey/FileSaver.js/master/FileSaver.js"></script>
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    <script src="http://d3js.org/topojson.v1.min.js"></script>
+    <script src="topojson.full.js"></script>
+    <script>
+        function generate(world) {
+            var width = 600,
+                height = width;
 
-    $(function () {
-        $('#export').on('click', function (event) {
-            exports();
-        });
-        
-        $('#download').on('click', function (event) {
-            download();
-        });
-        
-        $('#file').on('change', function (event) {
-            $('#export').attr('disabled', true);
-            var reader = new FileReader();
-            reader.onload = function (event) {
-                var svg = event.target.result;
-                $('#content').append(svg);
-                $('#export').removeAttr('disabled');
+            var projection = d3.geo.orthographic()
+                .translate([width / 2, height / 2])
+                .scale(295)
+                .clipAngle(90)
+                .precision(.1)
+                .rotate([0, -30]);
+                // There is a clipping bug, fixed in branch geo-clip-good
+                //.rotate([-103.5, -20, 0]);
+
+            var path = d3.geo.path()
+                .projection(projection);
+
+            var graticule = d3.geo.graticule()();
+
+            var svg = d3.select("#map").append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .call(d3.behavior.drag()
+                  .origin(function() { var rotate = projection.rotate(); return {x: 2 * rotate[0], y: -2 * rotate[1]}; })
+                  .on("drag", function() {
+                    projection.rotate([d3.event.x / 2, -d3.event.y / 2, projection.rotate()[2]]);
+                    svg.selectAll("path").attr("d", path);
+                  }));
+
+            var hatch = svg.append("defs").append("pattern")
+                .attr("id", "hatch")
+                .attr("patternUnits", "userSpaceOnUse")
+                .attr("width", 8)
+                .attr("height", 8)
+              .append("g");
+            hatch.append("path").attr("d", "M0,0L8,8");
+            hatch.append("path").attr("d", "M8,0L0,8");
+
+            svg.append("path")
+                .datum({type: "Sphere"})
+                .attr("class", "background")
+                .attr("d", path);
+
+            svg.append("path")
+                .datum(graticule)
+                .attr("class", "graticule")
+                .attr("d", path);
+
+            svg.append("path")
+                .datum({type: "LineString", coordinates: [[180, -90], [180, 0], [180, 90]]})
+                .attr("class", "antimeridian")
+                .attr("d", path);
+
+            svg.append("path")
+                .datum({type: "Sphere"})
+                .attr("class", "graticule")
+                .attr("d", path);
+            
+              
+            var country = svg.selectAll(".country")
+                .data(topojson.feature(world, world.objects.collection).features)
+                .enter().append("g")
+                .attr("class", "country");
+              
+                country.append("path")
+                  .attr("class", "land")
+                  .attr("d", path);
+              /*
+              country.append("path")
+                  .datum(boundsPolygon(d3.geo.bounds))
+                  .attr("class", "bounds")
+                  .attr("d", path);  
+              */
+        }
+
+        function boundsPolygon(b) {
+          return function(geometry) {
+            var bounds = b(geometry);
+            if (bounds[0][0] === -180 && bounds[0][1] === -90 && bounds[1][0] === 180 && bounds[1][1] === 90) {
+              return {type: "Sphere"};
             }
-            reader.readAsText(this.files[0]);
+            if (bounds[0][1] === -90) bounds[0][1] += 1e-6;
+            if (bounds[1][1] === 90) bounds[0][1] -= 1e-6;
+            if (bounds[0][1] === bounds[1][1]) bounds[1][1] += 1e-6;
+
+            return {
+              type: "Polygon",
+              coordinates: [
+                [bounds[0]]
+                  .concat(parallel(bounds[1][1], bounds[0][0], bounds[1][0]))
+                  .concat(parallel(bounds[0][1], bounds[0][0], bounds[1][0]).reverse())
+              ]
+            };
+          };
+        }
+
+        function parallel(φ, λ0, λ1) {
+          if (λ0 > λ1) λ1 += 360;
+          var dλ = λ1 - λ0,
+              step = dλ / Math.ceil(dλ);
+          return d3.range(λ0, λ1 + .5 * step, step).map(function(λ) { return [normalise(λ), φ]; });
+        }
+
+        function bounds2d(d) {
+          var x0, y0, x1, y1;
+          x1 = y1 = -(x0 = y0 = Infinity);
+          d3.geo.stream(d, {
+            point: function(x, y) {
+              if (x < x0) x0 = x;
+              if (x > x1) x1 = x;
+              if (y < y0) y0 = y;
+              if (y > y1) y1 = y;
+            },
+            lineStart: noop,
+            lineEnd: noop,
+            polygonStart: noop,
+            polygonEnd: noop
+          });
+          return [[x0, y0], [x1, y1]];
+        }
+
+        function noop() {}
+        /*
+        (function() {
+
+            var width = 300,
+                height = width / 2;
+
+            var circle = d3.geo.circle();
+
+            var projection = d3.geo.equirectangular()
+                .translate([width / 2, height / 2])
+                .scale(width / (2 * Math.PI) - 2)
+                .precision(.1);
+
+            var path = d3.geo.path()
+                .pointRadius(1)
+                .projection(projection);
+              
+            d3.select("#inside").append("svg")
+              .attr("width", 16)
+              .attr("height", 16)
+              .append("rect")
+              .style("fill", "url(#hatch)")
+              .style("stroke", "#000")
+              .style("stroke-width", "2px")
+              .attr("width", 16)
+              .attr("height", 16);
+        })();
+        */
+
+        function normalise(x) {
+          return (x + 180) % 360 - 180;
+        }
+            
+        function getContent() {        
+            var data = {
+                type: "FeatureCollection",
+                features: Array.prototype.map.call(document.querySelectorAll('svg path'), function (path) { 
+                    return {
+                      "type": "Feature",
+                      "properties": {},
+                      "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            path.attributes.d.value.match(/M (.*) Z/).pop().split(' ').map(function (p) { 
+                                var point = JSON.parse('[' + p + ']'),
+                                    x = point[0] / document.querySelector('svg').width.baseVal.value, 
+                                    y = point[1] / document.querySelector('svg').height.baseVal.value;
+                                    
+                                return [
+                                    (x * 180) - 180,
+                                    90 - (y * 90)
+                                ];
+                            })
+                        ]
+                      }
+                    }; 
+                })
+            }
+
+            var content = JSON.stringify(topojson.topology({
+                collection: data
+            }, {'property-transform': function allProperties(properties, key, value) {
+                properties[key] = value;
+                return true;
+            }}));
+        }
+            
+        function exports() {        
+            var content = getContent();
+            
+            generate(JSON.parse(content));
+        }
+        
+        function download() {
+            var content = getContent();
+            
+            saveAs(new Blob([content], {
+                type: 'text/plain;charset=utf-8'
+            }), 'map.topojson');
+        }
+
+        $(function () {
+            $('#export').on('click', function (event) {
+                exports();
+            });
+            
+            $('#download').on('click', function (event) {
+                download();
+            });
+            
+            $('#file').on('change', function (event) {
+                $('#export').attr('disabled', true);
+                var reader = new FileReader();
+                reader.onload = function (event) {
+                    var svg = event.target.result;
+                    $('#content').append(svg);
+                    $('#export').removeAttr('disabled');
+                }
+                reader.readAsText(this.files[0]);
+            });
         });
-    });
-</script>
+    </script>
 </body>
 </html>
